@@ -123,11 +123,14 @@ func main() {
 		cacheControl(http.FileServer(http.Dir(coversDir)), "public, max-age=86400")))
 
 	// Static frontend; visiting it nudges a background refresh.
+	// no-cache (not no-store) lets the browser keep a copy but forces it to revalidate every load,
+	// so edits to index.html/CSS/JS show up on a normal reload instead of being heuristically cached.
 	fs := http.FileServer(http.Dir(cfg.webDir))
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			syncer.trigger()
 		}
+		w.Header().Set("Cache-Control", "no-cache")
 		fs.ServeHTTP(w, r)
 	}))
 

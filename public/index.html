@@ -32,6 +32,13 @@
   .monthsbar span{position:absolute;top:2px;white-space:nowrap}
 
   .grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,var(--ch));grid-auto-columns:var(--cw);gap:var(--gap)}
+  /* Each cell carries both its continuous-stream column (--cc) and its month-block column (--cb).
+     Switching layout mode is then a single class toggle on the grid — no per-cell JS write loop.
+     --mgap (set per zoom) shifts every cell by (its month ordinal)×--mgap, fracturing the stream into
+     months: negative = overlap (Finished level), 0 = continuous, positive = a widening gap (Covers).
+     Boundary weeks split diagonally because their top/bottom cells belong to different months. */
+  .grid>.cell{grid-column:var(--cc);transform:translateX(calc(var(--mi,0) * var(--mgap,0px)))}
+  .grid.blocks>.cell{grid-column:var(--cb);transform:none}   /* Compact/Detail use real gap tracks */
 
   /* ===== a day cell ===== */
   .cell{position:relative;border-radius:4px;background:#161b22;border:1px solid #20262e;display:flex;flex-direction:column;align-items:center;overflow:hidden;
@@ -75,6 +82,18 @@
   :is(.z3,.z4,.z5) .book.nocover .ph{display:flex;opacity:1}
   .book.nocover img.cover{display:none}
 
+  /* COVERS level only: small hours-listened badge pinned bottom-left (mirrors the bottom-right day
+     number / top-right check). It's a pill that hugs the number, filled with the heatmap's green
+     intensity colour for that day — so the cover stays visible and the green is just an accent. */
+  .hours{position:absolute;left:3px;bottom:3px;display:none;align-items:center;justify-content:center;
+    padding:1px 5px;border-radius:6px;font-size:11px;font-weight:800;color:#06210e;line-height:1.35;
+    z-index:3;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.55)}
+  .z3 .hours{display:flex}
+  .cell.l1 .hours{background:#2f8f57}
+  .cell.l2 .hours{background:#1c6b3f;color:#dffbe9}
+  .cell.l3 .hours{background:#27a149}
+  .cell.l4 .hours{background:#3fd35b}
+
   /* WIDE levels (Compact + Full detail): books sit side by side as cards — cover left, info right.
      The cover is a full cell-height square so it stays continuous with the square-cover level it grows
      out of; only when two cards share one row (z5 multi-book) is it capped so both fit. */
@@ -115,14 +134,18 @@
   .z5 .pct{font-size:12px}
   .book.fin .pct .to{color:var(--green)}
 
-  /* COMPACT + multiple books: one diagonally-blended cover on the left, both titles stacked on the right */
+  /* COMPACT (level 4): the cover is pinned to the left at the FULL cell height and never changes
+     size as you zoom — only the cell width grows. The title/progress panel sits to its right and is
+     simply revealed (the cell's overflow:hidden clips it) as the square stretches into a rectangle,
+     rather than the two sides splitting the width and both starting out thin. compactmulti is
+     positioned absolutely so it fills the whole cell regardless of the wide cell's flex padding. */
   .compactmulti{display:none}
-  .z4 .cell.multi .books{display:none}
-  .z4 .cell.multi .compactmulti{display:flex;align-items:center;gap:12px;width:100%;height:100%}
-  .compactmulti .blend{position:relative;height:calc(100% - 8px);aspect-ratio:1/1;flex:0 0 auto;border-radius:5px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.5);background:linear-gradient(135deg,#283449,#161b22)}
+  .z4 .cell .books{display:none}
+  .z4 .cell .compactmulti{position:absolute;inset:0;display:flex;align-items:stretch}
+  .compactmulti .blend{position:relative;height:100%;aspect-ratio:1/1;flex:0 0 auto;overflow:hidden;box-shadow:6px 0 16px rgba(0,0,0,.45);background:linear-gradient(135deg,#283449,#161b22)}
   .compactmulti .blend img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   .compactmulti .blend img.bimg2{-webkit-mask-image:linear-gradient(135deg,transparent 43%,#000 57%);mask-image:linear-gradient(135deg,transparent 43%,#000 57%)}
-  .compactmulti .titles{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:8px}
+  .compactmulti .titles{flex:1 1 0;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:8px;padding:0 14px}
   .compactmulti .trow{min-width:0}
   .compactmulti .tt{font-weight:700;font-size:12px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .compactmulti .pp{font-size:11px;color:var(--muted);margin-top:1px;white-space:nowrap}
@@ -144,7 +167,7 @@
 <div class="toolbar">
   <div class="zoom">
     <button class="zbtn" id="zout">–</button>
-    <span class="zlabel" id="zlabel">Level 1 · Intensity</span>
+    <span class="zlabel" id="zlabel"><span id="zlname">Level 1 · Intensity</span> <small id="zlpx"></small></span>
     <button class="zbtn" id="zin">+</button>
   </div>
   <span>Scroll or <b>▲ / ▼</b> to zoom through the stages · cursor day stays put · <b>◄ / ►</b> or <b>Shift + scroll</b> to pan</span>
@@ -197,11 +220,13 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','
 // separated by a thin (¼ / ½ cell) gap — regardless of which weekday the month starts on.
 const blockTracks=[];   // per track: 'cell' | 'gapthin'
 const monthBase={};     // 'Y-M' -> index of that month's first cell track
+const monthIndex={};    // 'Y-M' -> 0-based month ordinal (used by the continuous-mode fracture)
 const months=[];        // in order: {base: first cell track, weeks: # of week-columns}
 const cellTracks=[];    // indices into blockTracks that are real day-columns
 function computeMonthBlocks(){
   blockTracks.length=0; cellTracks.length=0; months.length=0;
   for(const k in monthBase) delete monthBase[k];
+  for(const k in monthIndex) delete monthIndex[k];
   const lastDate=new Date(start); lastDate.setDate(start.getDate()+WEEKS*7-1);
   let m=new Date(start.getFullYear(), start.getMonth(), 1);
   const endM=new Date(lastDate.getFullYear(), lastDate.getMonth(), 1);
@@ -212,6 +237,7 @@ function computeMonthBlocks(){
     const weeks=Math.ceil((firstDow+dim)/7);
     if(!first) blockTracks.push('gapthin');
     monthBase[m.getFullYear()+'-'+m.getMonth()]=blockTracks.length;
+    monthIndex[m.getFullYear()+'-'+m.getMonth()]=months.length;
     months.push({base:blockTracks.length, weeks});
     for(let i=0;i<weeks;i++) blockTracks.push('cell');
     first=false;
@@ -263,8 +289,9 @@ function renderDay(cell, list, books){
   }
   cell.appendChild(booksEl);
 
-  // compact view of a multi-book day: blended cover + stacked titles
-  if(sessions.length>1){
+  // compact view (level 4): blended cover + stacked title(s) — built for every day, single or
+  // multi, so the 3->4 / 4->5 transitions behave identically regardless of book count
+  {
     const cm=document.createElement('div'); cm.className='compactmulti';
     const blend=document.createElement('div'); blend.className='blend';
     sessions.slice(0,2).forEach((s,i)=>{
@@ -285,6 +312,12 @@ function renderDay(cell, list, books){
     cm.appendChild(titles);
     cell.appendChild(cm);
   }
+
+  // Covers-level hours overlay (total time listened that day, one decimal)
+  const hrs=document.createElement('div'); hrs.className='hours';
+  hrs.textContent=(total/3600).toFixed(1);
+  cell.appendChild(hrs);
+
   cell.title=sessions.map(s=>s.t+' '+s.from+'→'+s.to+'%'+(s.fin?' ✓':'')).join('   ·   ');
 }
 
@@ -308,7 +341,7 @@ function build(data){
       const tb=tracksBefore(monthBase[weekYear+'-'+weekMonth]);
       const lab=document.createElement('span');
       lab.textContent=MONTH[weekMonth]+(weekMonth===0?" '"+String(weekYear).slice(2):'');
-      lab.dataset.cont=w; lab.dataset.cb=tb.c; lab.dataset.tb=tb.t;
+      lab.dataset.cont=w; lab.dataset.cb=tb.c; lab.dataset.tb=tb.t; lab.dataset.mi=monthIndex[weekYear+'-'+weekMonth];
       monthsbar.appendChild(lab); monthEls.push(lab);
     }
     for(let r=0; r<7; r++){
@@ -317,9 +350,9 @@ function build(data){
       const cell=document.createElement('div');
       cell.className='cell';
       cell.style.gridRow=(r+1);
-      cell.style.gridColumn=(w+1);
-      cell.dataset.colCont=(w+1);
-      cell.dataset.colBlock=(blockColFor(date)+1);
+      cell.style.setProperty('--cc', w+1);                  // continuous-stream column
+      cell.style.setProperty('--cb', blockColFor(date)+1);  // month-block column
+      cell.style.setProperty('--mi', monthIndex[date.getFullYear()+'-'+date.getMonth()]||0); // month ordinal (fracture shift)
       cell.innerHTML='<span class="num">'+date.getDate()+'</span>';
 
       if(isFuture){ cell.classList.add('future'); }
@@ -336,7 +369,8 @@ function build(data){
 // ===== zoom =====
 const scroller=document.getElementById('scroller');
 const stage=document.getElementById('stage');
-const zlabel=document.getElementById('zlabel');
+const zlname=document.getElementById('zlname');
+const zlpx=document.getElementById('zlpx');
 // Zoom levels are numbered from 0. Level 1 is what loads initially.
 // Levels 0-2 are the green heatmap; 3 (Covers) is the square cover mosaic; 4 (Compact) and
 // 5 (Full detail) are the wide horizontal card — they begin once the box turns into a wide rectangle.
@@ -379,13 +413,29 @@ function levelTargetCw(n, m){        // where arrows/buttons snap for each level
   }
 }
 // layout mode: false = continuous stream (levels 0-3), true = month blocks (levels 4-5)
-let blocksMode=false, thinFactor=0.5;
+let blocksMode=false, thinFactor=0.5, monthShift=0, padX=0;   // padX: half-viewport lead/trail pad so edge months can center
 function blockXFor(cellsBefore, thinBefore, cwv, thinv){ return cellsBefore*(cwv+GAP) + thinBefore*(thinv*cwv+GAP); }
 function weekBlockX(w, cwv, thinv){ const tb=tracksBefore(weekBlockCol[w]); return blockXFor(tb.c, tb.t, cwv, thinv); }
 function nearestWeekToX(x, cwv, thinv){ let best=0,bd=Infinity; for(let w=0;w<WEEKS;w++){ const d=Math.abs(weekBlockX(w,cwv,thinv)-x); if(d<bd){bd=d;best=w;} } return best; }
 // center pixel of a whole month block (used by left/right month navigation in Compact)
 function monthCenterX(i, cwv, thinv){ const mo=months[i], tb=tracksBefore(mo.base); return blockXFor(tb.c, tb.t, cwv, thinv) + (mo.weeks*cwv + (mo.weeks-1)*GAP)/2; }
 function nearestMonthToX(x, cwv, thinv){ let best=0,bd=Infinity; for(let i=0;i<months.length;i++){ const d=Math.abs(monthCenterX(i,cwv,thinv)-x); if(d<bd){bd=d;best=i;} } return best; }
+// continuous-stream equivalents (Finished/Covers). dataset.cont = the week column a month begins on
+// (months share boundary weeks in the stream), plus the fracture shift (ordinal × monthShift).
+function monthContStart(i){ return +monthEls[i].dataset.cont; }
+function monthOfWeek(w){ let mi=0; for(let i=0;i<monthEls.length;i++){ if(monthContStart(i)<=w) mi=i; else break; } return mi; }
+function monthCenterXCont(i, cwv, shiftv){
+  const pitch=cwv+GAP, s=monthContStart(i), e=(i+1<monthEls.length)?monthContStart(i+1):WEEKS;
+  return ((s+e-1)/2)*pitch + cwv/2 + i*shiftv;
+}
+function nearestMonthToXCont(x, cwv, shiftv){ let best=0,bd=Infinity; for(let i=0;i<monthEls.length;i++){ const d=Math.abs(monthCenterXCont(i,cwv,shiftv)-x); if(d<bd){bd=d;best=i;} } return best; }
+// fracture amount per month for the continuous stream: slight overlap (negative) at the Finished
+// level, opening through 0 to a positive gap by the top of Covers, where it hands off to the block gap.
+function monthGap(cwv, m){
+  if(cwv < 22 || monthEls.length<2) return 0;                       // Overview/Intensity stay continuous
+  const t = Math.min(1, (cwv - 22) / Math.max(1, m.maxCh - 22));    // 0 at Finished → 1 at top of Covers
+  return Math.round(cwv * (0.18 + 0.95*t));                         // slight gap at Finished → ~1.1cw at Covers
+}
 // center pixel of day-column k (used by left/right week navigation in Detail; indexes real columns,
 // so partial month-edge columns are reachable)
 function colCenterX(k, cwv, thinv){ const tb=tracksBefore(cellTracks[k]); return blockXFor(tb.c, tb.t, cwv, thinv) + cwv/2; }
@@ -407,45 +457,81 @@ function trackPosToX(p, cwv, thinv){
 function relayoutMonths(){
   const pitch=cw+GAP;
   for(const el of monthEls){
-    el.style.left=(blocksMode ? blockXFor(+el.dataset.cb, +el.dataset.tb, cw, thinFactor) : (+el.dataset.cont)*pitch)+'px';
+    el.style.left=((blocksMode ? blockXFor(+el.dataset.cb, +el.dataset.tb, cw, thinFactor)
+                               : (+el.dataset.cont)*pitch + (+el.dataset.mi)*monthShift) + padX)+'px';
   }
 }
 function setMode(toBlocks){
-  for(const c of grid.children){ c.style.gridColumn = toBlocks ? c.dataset.colBlock : c.dataset.colCont; }
+  // cells already carry both columns (--cc/--cb); CSS picks via the .blocks class, so this is O(1)
+  grid.classList.toggle('blocks', toBlocks);
   grid.style.gridTemplateColumns = toBlocks ? blockTemplate() : '';
   blocksMode=toBlocks;
 }
+// Track which discrete state is currently applied so per-frame zooming only touches the
+// (cheap) continuous bits — class/label/thingap are rewritten only when the level changes.
+let appliedLevel=-1, appliedWide=null;
 function applyZoom(){
   const m=metrics();
   ch = Math.min(cw, m.maxCh);   // never taller than wide
-  document.documentElement.style.setProperty('--cw',cw+'px');
-  document.documentElement.style.setProperty('--ch',ch+'px');
-  const n=stageNum(cw,m);
-  stage.className='stage '+STAGE_META[n].cls+(cw>m.maxCh?' wide':'');
-  zlabel.innerHTML='Level '+n+' · '+STAGE_META[n].name+' &nbsp;<small>'+Math.round(cw)+'px</small>';
-  thinFactor = (n===5)?0.25:0.5;                       // thin month-gap: ¼ cell in detail, ½ in compact
-  if(n>=4) grid.style.setProperty('--thingap','calc(var(--cw) * '+thinFactor+')');
+  const root=document.documentElement.style;
+  root.setProperty('--cw',cw+'px');
+  root.setProperty('--ch',ch+'px');
+  const n=stageNum(cw,m), wide=cw>m.maxCh;
+  if(n!==appliedLevel || wide!==appliedWide){
+    stage.className='stage '+STAGE_META[n].cls+(wide?' wide':'');
+    if(n!==appliedLevel){
+      zlname.textContent='Level '+n+' · '+STAGE_META[n].name;
+      thinFactor = (n===5)?0.25:0.5;                     // thin month-gap: ¼ cell in detail, ½ in compact
+      if(n>=4) grid.style.setProperty('--thingap','calc(var(--cw) * '+thinFactor+')');
+    }
+    appliedLevel=n; appliedWide=wide;
+  }
+  // continuous-mode month fracture (levels 0-3). Block mode (Compact/Detail) uses real gap tracks, so 0.
+  monthShift = (n>=4) ? 0 : monthGap(cw, m);
+  grid.style.setProperty('--mgap', monthShift+'px');
+  // From Covers up, pad both ends by half the viewport so the first/last month can be scrolled to the
+  // centre (and zoomed into). The content<->scroller coordinate bridge in setZoom/panBy accounts for it.
+  padX = (n>=3) ? Math.round(scroller.clientWidth/2) : 0;
+  grid.style.paddingLeft = padX+'px';
+  grid.style.paddingRight = ((monthShift>0 ? (monthEls.length-1)*monthShift : 0) + padX)+'px';
+  zlpx.textContent=Math.round(cw)+'px';
   relayoutMonths();
 }
 function setZoom(next, focalX){
-  const oldCw=cw, oldMode=blocksMode, oldThin=thinFactor;
-  const cx=scroller.scrollLeft+focalX;
+  const oldCw=cw, oldMode=blocksMode, oldThin=thinFactor, oldShift=monthShift, oldPad=padX;
+  const cx=scroller.scrollLeft+focalX-oldPad;   // content-coordinate point under the cursor
+  // continuous-stream week under the cursor, undoing the old fracture shift (negligible in block mode)
+  const contWeekAt=(x,cwv,shiftv)=>{ let w=Math.round(x/(cwv+GAP)); return Math.round((x - monthOfWeek(Math.max(0,w))*shiftv)/(cwv+GAP)); };
   const m=metrics();
   cw=Math.max(7, Math.min(m.maxCw, next));
   const newMode = stageNum(cw,m)>=4;
   applyZoom();
   if(newMode!==oldMode){
-    // re-anchor on the focal week so the view doesn't jump when the layout changes
-    const focalWeek = oldMode ? nearestWeekToX(cx, oldCw, oldThin) : Math.round(cx/(oldCw+GAP));
+    // re-anchor across the layout change. Entering Compact/Detail (block, month-oriented) snaps the
+    // focal month to the viewport middle; leaving it back to Covers re-anchors on the focal week.
+    const focalWeek = oldMode ? nearestWeekToX(cx, oldCw, oldThin) : contWeekAt(cx, oldCw, oldShift);
     setMode(newMode);
     relayoutMonths();
-    const nx = newMode ? weekBlockX(focalWeek, cw, thinFactor) : focalWeek*(cw+GAP);
-    scroller.scrollLeft = nx + cw/2 - focalX;
+    if(newMode){
+      scroller.scrollLeft = monthCenterX(monthOfWeek(Math.max(0,focalWeek)), cw, thinFactor) - focalX + padX;
+    } else {
+      const nx = focalWeek*(cw+GAP) + monthOfWeek(Math.max(0,focalWeek))*monthShift;
+      scroller.scrollLeft = nx + cw/2 - focalX + padX;
+    }
   } else if(blocksMode){
     // same (block) mode, but cw and/or the thin-gap width may have changed (Compact <-> Detail)
-    scroller.scrollLeft = trackPosToX(xToTrackPos(cx, oldCw, oldThin), cw, thinFactor) - focalX;
+    scroller.scrollLeft = trackPosToX(xToTrackPos(cx, oldCw, oldThin), cw, thinFactor) - focalX + padX;
   } else {
-    scroller.scrollLeft = (cx/(oldCw+GAP))*(cw+GAP) - focalX;
+    // continuous mode
+    const w=contWeekAt(cx, oldCw, oldShift), mi=monthOfWeek(Math.max(0,w));
+    if(stageNum(cw,m)===3 && stageNum(oldCw,m)<3){
+      // entering Covers from Finished: snap the focal month to the viewport middle
+      scroller.scrollLeft = monthCenterXCont(mi, cw, monthShift) - focalX + padX;
+    } else {
+      // hold the focal content point put despite cw and the fracture shift changing
+      const baseColPos=(cx - mi*oldShift)/(oldCw+GAP);
+      scroller.scrollLeft = baseColPos*(cw+GAP) + mi*monthShift - focalX + padX;
+    }
   }
 }
 scroller.addEventListener('wheel',(e)=>{
@@ -474,14 +560,17 @@ function stepLevel(dir){
   animateZoom(levelTargetCw(ni,m), scroller.clientWidth/2);
 }
 function panBy(dir){
-  const m=metrics(), n=stageNum(cw,m), half=scroller.clientWidth/2, centerX=scroller.scrollLeft+half;
+  const m=metrics(), n=stageNum(cw,m), half=scroller.clientWidth/2, centerX=scroller.scrollLeft+half-padX;
   let left;
   if(n===5){           // Detail: step one day-column, snap it to center
     const k=Math.max(0, Math.min(cellTracks.length-1, nearestColToX(centerX, cw, thinFactor)+dir));
-    left=colCenterX(k, cw, thinFactor)-half;
+    left=colCenterX(k, cw, thinFactor)-half+padX;
   } else if(n===4){    // Compact: step one month, snap its block to center
     const i=Math.max(0, Math.min(months.length-1, nearestMonthToX(centerX, cw, thinFactor)+dir));
-    left=monthCenterX(i, cw, thinFactor)-half;
+    left=monthCenterX(i, cw, thinFactor)-half+padX;
+  } else if(n===3){    // Covers (continuous stream): step one month, snap its center to the middle
+    const i=Math.max(0, Math.min(monthEls.length-1, nearestMonthToXCont(centerX, cw, monthShift)+dir));
+    left=monthCenterXCont(i, cw, monthShift)-half+padX;
   } else {             // heatmap levels: plain pan by ~one screen
     left=scroller.scrollLeft + dir*scroller.clientWidth*0.85;
   }
