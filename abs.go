@@ -131,9 +131,9 @@ func pct(pos, dur float64) int {
 func aggregate(sessions []absSession, loc *time.Location) Data {
 	type key struct{ day, id string }
 	type acc struct {
-		secs                 float64
-		startPos, currentPos float64
-		duration             float64
+		secs       float64
+		currentPos float64
+		duration   float64
 	}
 	accs := map[key]*acc{}
 	books := map[string]Book{}
@@ -151,13 +151,10 @@ func aggregate(sessions []absSession, loc *time.Location) Data {
 		k := key{day, id}
 		a := accs[k]
 		if a == nil {
-			a = &acc{startPos: s.StartTime, currentPos: s.CurrentTime}
+			a = &acc{currentPos: s.CurrentTime}
 			accs[k] = a
 		}
 		a.secs += s.TimeListening
-		if s.StartTime < a.startPos {
-			a.startPos = s.StartTime
-		}
 		if s.CurrentTime > a.currentPos {
 			a.currentPos = s.CurrentTime
 		}
@@ -175,24 +172,37 @@ func aggregate(sessions []absSession, loc *time.Location) Data {
 		}
 	}
 
+	// Walk each book's days in order and turn raw positions into a continuous
+	// progress bar: a day's "from" is where the previous day left off (the max
+	// progress reached so far for that book), not the session's own startTime —
+	// ABS frequently reports startTime=0 even when resuming.
+	byBook := map[string][]string{} // book id -> its days
+	for k := range accs {
+		byBook[k.id] = append(byBook[k.id], k.day)
+	}
 	days := map[string][]DaySession{}
 	var earliest string
-	for k, a := range accs {
-		to := pct(a.currentPos, a.duration)
-		from := pct(a.startPos, a.duration)
-		if from > to {
-			from = to
-		}
-		days[k.day] = append(days[k.day], DaySession{
-			ID:      k.id,
-			From:    from,
-			To:      to,
-			Fin:     to >= 99,
-			Secs:    int(math.Round(a.secs)),
-			Started: started[k.id],
-		})
-		if earliest == "" || k.day < earliest {
-			earliest = k.day
+	for id, ds := range byBook {
+		sort.Strings(ds)
+		running := 0 // max progress % reached on earlier days
+		for _, day := range ds {
+			a := accs[key{day, id}]
+			to := pct(a.currentPos, a.duration)
+			if to < running {
+				to = running // re-listening an earlier part: no new forward progress
+			}
+			days[day] = append(days[day], DaySession{
+				ID:      id,
+				From:    running,
+				To:      to,
+				Fin:     to >= 99,
+				Secs:    int(math.Round(a.secs)),
+				Started: started[id],
+			})
+			running = to
+			if earliest == "" || day < earliest {
+				earliest = day
+			}
 		}
 	}
 	// stable order within a day (largest listen first) for deterministic output

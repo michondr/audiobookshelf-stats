@@ -6,7 +6,8 @@ services:
     restart: unless-stopped
     # run as the host user so the bind-mounted ./data is writable and stays
     # owned by you (the distroless image otherwise runs as uid 65532).
-    user: "1000:1000"
+    # PUID/PGID come from .env; default to 1000:1000.
+    user: "${PUID:-1000}:${PGID:-1000}"
     env_file: .env
     volumes:
       # persistent SQLite db + downscaled covers

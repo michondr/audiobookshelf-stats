@@ -51,7 +51,16 @@ func (c *Client) fetchCover(ctx context.Context, dir, itemID string) error {
 	if _, err := os.Stat(dst); err == nil {
 		return nil
 	}
-	resp, err := c.get(ctx, "/api/items/"+itemID+"/cover")
+	// ABS content-negotiates the cover: without an Accept header it returns a
+	// server-side JPEG conversion that is corrupt (flat green) for some covers,
+	// while its webp original is fine. Ask for webp explicitly and decode that.
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/items/"+itemID+"/cover", nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Accept", "image/webp,image/*")
+	resp, err := c.http.Do(req)
 	if err != nil {
 		return err
 	}
