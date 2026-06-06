@@ -15,18 +15,37 @@ A GitHub-contributions-style heatmap of your [Audiobookshelf](https://www.audiob
 
 ## Run it
 
-A single Go container serves both the frontend and API. Configure via a `.env` file:
-
-```env
-ABS_URL=http://your-audiobookshelf:13378
-ABS_TOKEN=your_api_token
-ABS_PUBLIC_URL=https://abs.example.com   # optional: enables "Open in Audiobookshelf" links
-TZ=Europe/Prague
-```
+A single Go container serves both the frontend and API.
 
 ```sh
+cp .env.example .env   # fill in ABS_URL, ABS_TOKEN, and optionally ABS_PUBLIC_URL
 docker compose up -d
 ```
+
+**Using the pre-built image** — no local build needed, works on amd64 and arm64:
+
+```yaml
+# docker-compose.yml
+services:
+  abs-stats:
+    image: ghcr.io/michondr/audiobookshelf-status:latest
+    container_name: abs-stats
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    environment:
+      ABS_URL: ${ABS_URL}
+      ABS_PUBLIC_URL: ${ABS_PUBLIC_URL:-}
+      ABS_TOKEN: ${ABS_TOKEN}
+      TZ: ${TZ:-Europe/Prague}
+      PORT: ${PORT:-8080}
+      DATA_DIR: ${DATA_DIR:-/data}
+    volumes:
+      - ./data:/data
+    ports:
+      - "8080:8080"
+```
+
+**Building locally** — swap `image:` for `build: .` (or use the included `docker-compose.yml` which does this by default).
 
 ## Demo
 

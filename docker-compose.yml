@@ -4,23 +4,13 @@ services:
     image: abs-stats:latest
     container_name: abs-stats
     restart: unless-stopped
-    # run as the host user so the bind-mounted ./data is writable and stays
-    # owned by you (the distroless image otherwise runs as uid 65532).
-    # PUID/PGID come from .env; default to 1000:1000.
     user: "${PUID:-1000}:${PGID:-1000}"
-    env_file: .env
+    environment:
+      ABS_URL: ${ABS_URL}
+      ABS_PUBLIC_URL: ${ABS_PUBLIC_URL:-}
+      ABS_TOKEN: ${ABS_TOKEN}
+      TZ: ${TZ:-Europe/Prague}
+      PORT: ${PORT:-8080}
+      DATA_DIR: ${DATA_DIR:-/data}
     volumes:
-      # persistent SQLite db + downscaled covers
       - ./data:/data
-    networks:
-      - proxy
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.abs-stats.rule=Host(`abs-stats.michondr.space`)"
-      - "traefik.http.routers.abs-stats.entrypoints=websecure"
-      - "traefik.http.routers.abs-stats.tls.certresolver=myvercelresolver"
-      - "traefik.http.services.abs-stats.loadbalancer.server.port=8080"
-
-networks:
-  proxy:
-    external: true
