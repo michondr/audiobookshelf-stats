@@ -76,7 +76,9 @@ func runGenDemo(outDir string) int {
 	log.Printf("gendemo: synthesized %d sessions across %d books", len(sessions), len(used))
 
 	data := aggregate(sessions, loc)
-	// no absBase: the "Open in Audiobookshelf" feature self-disables in the frontend.
+	// A placeholder base so the "Open in Audiobookshelf" modal works in the demo;
+	// the links point at an example host (the demo has no real server).
+	data.AbsBase = "https://audiobookshelf.example.com"
 
 	if err := assembleSite(outDir, data, used, hc); err != nil {
 		log.Printf("gendemo: assemble site: %v", err)
