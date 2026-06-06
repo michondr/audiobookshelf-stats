@@ -31,6 +31,9 @@ export const S = {
   padX: 0,                   // half-viewport lead/trail pad so edge months can center
   appliedLevel: -1,          // last discrete stage applied (so per-frame zoom stays cheap)
   appliedWide: null,
+
+  // ----- share -----
+  monthKeys: [],             // month ordinal → 'Y-M(0-based)' key (inverse of monthIndex)
 };
 
 // DOM references, cached once the document is ready (app.js calls cacheDom()).
@@ -55,4 +58,6 @@ export function cacheDom(){
   D.abslist   = document.getElementById('abslist');
   D.absback   = document.getElementById('absback');
   D.abscancel = document.getElementById('abscancel');
+  D.sharebtn  = document.getElementById('sharebtn');
+  D.sharemon  = document.getElementById('sharemon');
 }

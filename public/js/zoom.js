@@ -70,6 +70,8 @@ export function applyZoom(){
       setLabel('Level '+STAGE_META[n].lvl+' · '+STAGE_META[n].name, Math.round(S.cw)+'px');
       S.thinFactor = (n===4)?0.25:0.5;                   // thin month-gap: ¼ cell in detail, ½ in compact
       if(n>=3) D.grid.style.setProperty('--thingap','calc(var(--cw) * '+S.thinFactor+')');
+      document.body.classList.toggle('lvl-covers', n===2);
+      if(_onLevelChange) _onLevelChange(n);
     }
     S.appliedLevel=n; S.appliedWide=wide;
   }
@@ -118,6 +120,14 @@ export function setZoom(next, focalX){
       D.scroller.scrollLeft = baseColPos*(S.cw+GAP) + mi*S.monthShift - focalX + S.padX;
     }
   }
+}
+
+let _onLevelChange=null;
+export function setOnLevelChange(fn){ _onLevelChange=fn; }
+export function currentMonthIndex(){
+  const half=D.scroller.clientWidth/2;
+  const centerX=D.scroller.scrollLeft+half-S.padX;
+  return nearestMonthToXCont(centerX, S.cw, S.monthShift);
 }
 
 let anim=null;

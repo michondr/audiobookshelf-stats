@@ -15,6 +15,14 @@ body{margin:0;background:var(--bg);color:var(--text);display:flex;flex-direction
 .zlabel small{color:var(--muted);font-weight:400}
 .desktoponly{display:inline}
 
+/* share button — phone, covers level only; positioned at the bottom of .board */
+.sharebtn{display:none;position:absolute;left:12px;right:12px;
+  bottom:calc(16px + env(safe-area-inset-bottom));z-index:6;
+  background:transparent;border:1.5px solid rgba(255,255,255,.22);color:var(--text);
+  font-size:16px;font-weight:700;padding:15px;border-radius:8px;
+  cursor:pointer;letter-spacing:.01em;backdrop-filter:blur(6px)}
+.sharebtn:disabled{opacity:.45}
+
 .board{flex:1;display:flex;min-height:0;padding:0 24px 18px;gap:10px;position:relative}
 .daylabels{display:flex;flex-direction:column;gap:var(--gap);flex:0 0 auto;color:var(--muted);font-size:10px}
 .daylabels .sp{height:20px;flex:0 0 auto}
@@ -258,6 +266,9 @@ body.phone.lvl-heatmap #usageinfo{
 @media (pointer:coarse){
   .toolbar{padding:8px 14px;gap:10px;font-size:11px}
   .toolbar .desktoponly{display:none}
+  body.lvl-covers .sharebtn{display:block}
+  /* keep the heatmap scrollable above the share button */
+  body.lvl-covers .scroller{padding-bottom:calc(80px + env(safe-area-inset-bottom))}
   .zbtn{width:34px;height:34px}
   .board{padding:0 10px 10px;gap:6px}
   .daylabels{display:none}

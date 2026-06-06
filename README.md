@@ -12,6 +12,7 @@ A GitHub-contributions-style heatmap of your [Audiobookshelf](https://www.audiob
   **year overview → heatmap → finished books → covers → compact → full detail.**
 - Downloads and downscales book covers locally.
 - Syncs in the background on each page load — no cron needed.
+- **Share it** — on mobile, at the Covers level a *Share [Month Year]* button appears at the bottom. Tapping it renders a 1080×1920 card with the month's heatmap grid, listening stats (hours, active days, books finished), and up to 10 book covers, then opens the native share sheet so you can post/send it anywhere.
 
 ## Run it
 

@@ -109,7 +109,7 @@ export function build(data){
   const lastMon=new Date(monthEnd); lastMon.setDate(monthEnd.getDate()-((monthEnd.getDay()+6)%7));
   S.WEEKS=Math.max(1, Math.round((lastMon-S.start)/(7*864e5))+1);
 
-  D.grid.innerHTML=''; D.monthsbar.innerHTML=''; S.monthEls.length=0; S.weekBlockCol.length=0;
+  D.grid.innerHTML=''; D.monthsbar.innerHTML=''; S.monthEls.length=0; S.weekBlockCol.length=0; S.monthKeys.length=0;
   computeMonthBlocks();
   D.hint.textContent=S.start.getFullYear()+' – '+S.today.getFullYear();
 
@@ -124,6 +124,7 @@ export function build(data){
       lab.textContent=MONTH[weekMonth]+(weekMonth===0?" '"+String(weekYear).slice(2):'');
       lab.dataset.cont=w; lab.dataset.cb=tb.c; lab.dataset.tb=tb.t; lab.dataset.mi=S.monthIndex[weekYear+'-'+weekMonth];
       D.monthsbar.appendChild(lab); S.monthEls.push(lab);
+      S.monthKeys[S.monthIndex[weekYear+'-'+weekMonth]] = weekYear+'-'+weekMonth;
     }
     for(let r=0; r<7; r++){
       const date=new Date(cur);

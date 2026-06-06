@@ -1,9 +1,10 @@
 // Input wiring. Desktop: wheel / ▲▼ zoom, ◄► pan, shift+wheel native pan. Phone: vertical swipe
 // zoom (up = in), horizontal drag = native scroll with settle-snap, tap a month to dive in.
 import { S, D, isPhone } from './state.js';
-import { applyZoom, setZoom, stepLevel, panBy, snapToNearestSet, enterMonthly, jumpToMonthCovers, setLevelActive } from './zoom.js';
+import { applyZoom, setZoom, stepLevel, panBy, snapToNearestSet, enterMonthly, jumpToMonthCovers, setLevelActive, currentMonthIndex, setOnLevelChange } from './zoom.js';
 import { sizeMonthly } from './monthly.js';
-import { esc } from './format.js';
+import { esc, MONTH } from './format.js';
+import { drawAndShare } from './share.js';
 
 // mobile: a day's books -> a modal to open one in Audiobookshelf
 function openAbsModal(cell){
@@ -67,7 +68,33 @@ export function initControls(){
   D.abscancel.addEventListener('click', closeAbsModal);
   D.abslist.addEventListener('click', (e)=>{ if(e.target.closest('.absitem')) closeAbsModal(); });
 
+  if(isPhone) initShareBtn();
   if(isPhone) initTouch();
+}
+
+function updateShareLabel(){
+  const i = currentMonthIndex();
+  const key = S.monthKeys[i];
+  if (!key || !D.sharemon) return;
+  const [y, mo] = key.split('-').map(Number);
+  D.sharemon.textContent = MONTH[mo] + ' ' + y;
+}
+
+function initShareBtn(){
+  setOnLevelChange(n => { if(n===2) updateShareLabel(); });
+  D.scroller.addEventListener('scroll', updateShareLabel, {passive:true});
+
+  D.sharebtn.addEventListener('click', async () => {
+    const i = currentMonthIndex();
+    const key = S.monthKeys[i];
+    if (!key) return;
+    D.sharebtn.disabled = true;
+    const prev = D.sharemon.textContent;
+    D.sharemon.textContent = '…';
+    try { await drawAndShare(key); } catch(e) { console.error('share:', e); }
+    D.sharebtn.disabled = false;
+    D.sharemon.textContent = prev;
+  });
 }
 
 // ----- phone: swipe to zoom (vertical) / scroll-through with settle-snap (horizontal) -----
