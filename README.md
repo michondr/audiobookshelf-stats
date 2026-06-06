@@ -1,9 +1,9 @@
-# audiobookshelf-status
+# audiobookshelf stats heatmap
 
 A GitHub-contributions-style heatmap of your [Audiobookshelf](https://www.audiobookshelf.org/) listening history. Zoom from a year-at-a-glance overview all the way down to per-day cards showing covers, progress, and time listened.
 
-**🔎 Live demo:** https://michondr.github.io/audiobookshelf-status/
-*(demo data is synthetic — real books & covers from [Open Library](https://openlibrary.org/), ~3 years of generated listening)*
+**🔎 Live demo:** https://michondr.github.io/audiobookshelf-stats/
+*(demo data is synthetic — real books & covers from [Open Library](https://openlibrary.org/), ~14 months of generated listening)*
 
 ## What it does
 
@@ -28,7 +28,7 @@ docker compose up -d
 # docker-compose.yml
 services:
   abs-stats:
-    image: ghcr.io/michondr/audiobookshelf-status:latest
+    image: ghcr.io/michondr/audiobookshelf-stats:latest
     container_name: abs-stats
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
@@ -49,4 +49,4 @@ services:
 
 ## Demo
 
-`go run . -gendemo dist` builds the static demo into `dist/` (book list + covers fetched live from Open Library, ~3 years of listening synthesized through the same aggregation as production). On every push, `.github/workflows/demo.yml` builds it and publishes to GitHub Pages.
+`go run . -gendemo dist` builds the static demo into `dist/` (book list + covers fetched live from Open Library, ~14 months of listening synthesized through the same aggregation as production). On every push, `.github/workflows/demo.yml` builds it and publishes to GitHub Pages.

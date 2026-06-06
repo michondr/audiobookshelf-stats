@@ -4,7 +4,7 @@ package main
 // frontend backed by a generated data.json + real book covers, for publishing to
 // GitHub Pages. It needs no Audiobookshelf server and no database:
 //   1. pull a book list (titles/authors/cover ids) from Open Library, fully live;
-//   2. synthesize ~3 years of plausible listening history over those books;
+//   2. synthesize ~14 months of plausible listening history over those books;
 //   3. run it through the real aggregate() so the payload is byte-identical in shape
 //      to what the live server emits;
 //   4. download + downscale the covers used, and assemble <outdir>/ as a static site.
@@ -35,11 +35,11 @@ var olSubjects = []string{
 }
 
 const (
-	demoYears      = 3
+	demoMonths     = 14
 	demoSeed       = 20240607 // keeps a single run self-consistent (the OL list still varies)
 	olPerSubject   = 30
 	maxConcurrent  = 2
-	demoUserAgent  = "abs-stats-demo/1.0 (github.com/michondr/audiobookshelf-status; static Pages demo)"
+	demoUserAgent  = "abs-stats-demo/1.0 (github.com/michondr/audiobookshelf-stats; static Pages demo)"
 	demoCoverDelay = 120 * time.Millisecond // be polite to covers.openlibrary.org
 )
 
@@ -158,7 +158,7 @@ func getJSONInto(hc *http.Client, url string, v any) error {
 func synthSessions(candidates []demoBook, loc *time.Location, rng *rand.Rand) ([]absSession, map[string]demoBook) {
 	now := time.Now().In(loc)
 	today := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, loc)
-	start := today.AddDate(-demoYears, 0, 0)
+	start := today.AddDate(0, -demoMonths, 0)
 
 	type active struct {
 		b   demoBook
