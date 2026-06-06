@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" fill="#0d1117" rx="4"/>
+
+  <!-- 3×3 grid, cell 7.5×7.5, gap 2, step 9.5, start 2.75
+       0=#161b22  1=#13352a  2=#1c6b3f  3=#27a149  4=#3fd35b -->
+
+  <rect x="2.75"  y="2.75"  width="7.5" height="7.5" fill="#1c6b3f" rx="2"/>
+  <rect x="12.25" y="2.75"  width="7.5" height="7.5" fill="#13352a" rx="2"/>
+  <rect x="21.75" y="2.75"  width="7.5" height="7.5" fill="#27a149" rx="2"/>
+
+  <rect x="2.75"  y="12.25" width="7.5" height="7.5" fill="#13352a" rx="2"/>
+  <rect x="12.25" y="12.25" width="7.5" height="7.5" fill="#3fd35b" rx="2"/>
+  <rect x="21.75" y="12.25" width="7.5" height="7.5" fill="#1c6b3f" rx="2"/>
+
+  <rect x="2.75"  y="21.75" width="7.5" height="7.5" fill="#161b22" rx="2"/>
+  <rect x="12.25" y="21.75" width="7.5" height="7.5" fill="#27a149" rx="2"/>
+  <rect x="21.75" y="21.75" width="7.5" height="7.5" fill="#1c6b3f" rx="2"/>
+</svg>
