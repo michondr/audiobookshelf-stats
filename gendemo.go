@@ -194,12 +194,13 @@ func synthSessions(candidates []demoBook, loc *time.Location, rng *rand.Rand) ([
 				kept = append(kept, a)
 				continue
 			}
+			prev := a.pos
 			a.pos += listenSecs(rng)
 			finished := a.pos >= a.b.durSec
 			if finished {
 				a.pos = a.b.durSec
 			}
-			sessions = append(sessions, mkSession(a.b, a.pos, day, loc, rng))
+			sessions = append(sessions, mkSession(a.b, a.pos, a.pos-prev, day, loc, rng))
 			used[a.b.id] = a.b
 			if finished {
 				continue // drop: done
@@ -222,7 +223,7 @@ func listenSecs(rng *rand.Rand) float64 {
 	return math.Round(s)
 }
 
-func mkSession(b demoBook, pos float64, day time.Time, loc *time.Location, rng *rand.Rand) absSession {
+func mkSession(b demoBook, pos, listened float64, day time.Time, loc *time.Location, rng *rand.Rand) absSession {
 	ts := time.Date(day.Year(), day.Month(), day.Day(), 9+rng.Intn(12), rng.Intn(60), 0, 0, loc)
 	return absSession{
 		MediaType:     "book",
@@ -231,6 +232,7 @@ func mkSession(b demoBook, pos float64, day time.Time, loc *time.Location, rng *
 		DisplayAuthor: b.author,
 		Duration:      b.durSec,
 		CurrentTime:   pos,
+		TimeListening: listened,
 		UpdatedAt:     ts.UnixMilli(),
 		CreatedAt:     ts.UnixMilli(),
 	}
