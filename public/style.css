@@ -14,6 +14,7 @@ body{margin:0;background:var(--bg);color:var(--text);display:flex;flex-direction
 .zlabel{font-size:12px;color:var(--text);min-width:170px;text-align:center;font-weight:600}
 .zlabel small{color:var(--muted);font-weight:400}
 .desktoponly{display:inline}
+.nowbtn{display:none}
 
 /* share button — phone, covers level only; positioned at the bottom of .board */
 .sharebtn{display:none;position:absolute;left:12px;right:12px;
@@ -270,6 +271,10 @@ body.phone.lvl-heatmap #usageinfo{
   /* keep the heatmap scrollable above the share button */
   body.lvl-covers .scroller{padding-bottom:calc(80px + env(safe-area-inset-bottom))}
   .zbtn{width:34px;height:34px}
+  .nowbtn{display:block;margin-left:auto;padding:0 14px;height:34px;border-radius:8px;
+    border:1px solid var(--border);background:var(--panel);color:var(--accent);
+    font-size:13px;font-weight:700;cursor:pointer;flex:0 0 auto}
+  .nowbtn:active{background:var(--panel2)}
   .board{padding:0 10px 10px;gap:6px}
   .daylabels{display:none}
   #monthly{padding:4px 12px 16px}

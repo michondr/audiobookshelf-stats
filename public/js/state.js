@@ -60,4 +60,5 @@ export function cacheDom(){
   D.abscancel = document.getElementById('abscancel');
   D.sharebtn  = document.getElementById('sharebtn');
   D.sharemon  = document.getElementById('sharemon');
+  D.nowbtn    = document.getElementById('nowbtn');
 }
