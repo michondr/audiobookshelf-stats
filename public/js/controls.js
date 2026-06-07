@@ -1,7 +1,7 @@
 // Input wiring. Desktop: wheel / ▲▼ zoom, ◄► pan, shift+wheel native pan. Phone: vertical swipe
 // zoom (up = in), horizontal drag = native scroll with settle-snap, tap a month to dive in.
 import { S, D, isPhone } from './state.js';
-import { applyZoom, setZoom, stepLevel, panBy, snapToNearestSet, enterMonthly, jumpToMonthCovers, setLevelActive, currentMonthIndex, setOnLevelChange } from './zoom.js';
+import { applyZoom, setZoom, stepLevel, panBy, snapToNearestSet, enterMonthly, jumpToMonthCovers, setLevelActive, currentMonthIndex, setOnLevelChange, jumpToNow } from './zoom.js';
 import { sizeMonthly } from './monthly.js';
 import { esc, MONTH } from './format.js';
 import { drawAndShare } from './share.js';
@@ -68,6 +68,7 @@ export function initControls(){
   D.abscancel.addEventListener('click', closeAbsModal);
   D.abslist.addEventListener('click', (e)=>{ if(e.target.closest('.absitem')) closeAbsModal(); });
 
+  if(isPhone) D.nowbtn.onclick=()=>jumpToNow();
   if(isPhone) initShareBtn();
   if(isPhone) initTouch();
 }

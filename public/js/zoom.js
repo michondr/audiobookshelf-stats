@@ -5,7 +5,7 @@ import {
   GAP, metrics, blockTemplate, blockXFor,
   monthGap, monthOfWeek, nearestWeekToX, monthCenterX, nearestMonthToX,
   monthCenterXCont, nearestMonthToXCont, colCenterX, nearestColToX,
-  xToTrackPos, trackPosToX,
+  xToTrackPos, trackPosToX, weekBlockX,
 } from './layout.js';
 import { buildMonthly } from './monthly.js';
 
@@ -217,5 +217,21 @@ export function snapToNearestSet(){
 // true when the current level snaps to a "set" (Covers month / Compact month / Detail week) —
 // used by the phone controls to turn a short horizontal swipe into a one-set jump.
 export function setLevelActive(){ return !S.monthlyView && stageNum(S.cw, metrics())>=2; }
+
+// "Now" button: jump instantly to Detail level centered on today's week.
+export function jumpToNow(){
+  if(S.monthlyView){
+    S.monthlyView=false;
+    document.body.classList.remove('monthly');
+  }
+  const m=metrics();
+  S.cw=levelTargetCw(4,m);                   // Full Detail (phone ≈ full viewport width)
+  const wasBlocks=S.blocksMode;
+  applyZoom();                                // sets thinFactor, padX, relayouts months (in old mode)
+  if(!wasBlocks){ setMode(true); relayoutMonths(); }  // switch grid + reposition month labels
+  const todayWeek=Math.max(0, Math.min(S.WEEKS-1, Math.floor((S.today-S.start)/(7*864e5))));
+  const half=D.scroller.clientWidth/2;
+  D.scroller.scrollLeft=weekBlockX(todayWeek, S.cw, S.thinFactor)+S.cw/2-half+S.padX;
+}
 
 export { stageNum };
