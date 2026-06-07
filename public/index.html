@@ -42,6 +42,17 @@
 </div>
 </div><!-- /.views -->
 
+<!-- share fallback: shown when Navigator.share is unavailable -->
+<div class="modal" id="shareimgmodal">
+  <div class="mback" id="shareimgback"></div>
+  <div class="mcard shareimgcard">
+    <div class="mttl">Your listening card</div>
+    <div class="msub">Sharing is not supported in this browser. Long-press or right-click the image below to save it, then share it yourself.</div>
+    <img id="shareimgel" src="" alt="Listening heatmap card" class="shareimg">
+    <button class="mcancel" id="shareimgcancel">Close</button>
+  </div>
+</div>
+
 <!-- mobile: tap a day -> choose a book -> open it in Audiobookshelf -->
 <div class="modal" id="absmodal">
   <div class="mback" id="absback"></div>

@@ -226,9 +226,18 @@ export async function drawAndShare(ymKey) {
           if (e.name !== 'AbortError') reject(e); else resolve();
         }
       } else {
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob); a.download = fname; a.click();
-        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        const url = URL.createObjectURL(blob);
+        const modal = document.getElementById('shareimgmodal');
+        const img   = document.getElementById('shareimgel');
+        img.src = url;
+        modal.classList.add('show');
+        const close = () => {
+          modal.classList.remove('show');
+          img.src = '';
+          URL.revokeObjectURL(url);
+        };
+        document.getElementById('shareimgback').onclick   = close;
+        document.getElementById('shareimgcancel').onclick = close;
         resolve();
       }
     }, 'image/png');
