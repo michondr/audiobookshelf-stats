@@ -2,10 +2,10 @@
 // and the Level-0 (year grid) toggle.
 import { S, D, isPhone } from './state.js';
 import {
-  GAP, metrics, blockTemplate, blockXFor,
+  GAP, metrics, blockTemplate, blockXFor, blockColFor,
   monthGap, monthOfWeek, nearestWeekToX, monthCenterX, nearestMonthToX,
   monthCenterXCont, nearestMonthToXCont, colCenterX, nearestColToX,
-  xToTrackPos, trackPosToX, weekBlockX,
+  xToTrackPos, trackPosToX, weekOfDate,
 } from './layout.js';
 import { buildMonthly } from './monthly.js';
 
@@ -173,12 +173,12 @@ export function jumpToMonthCovers(y, mo){
 }
 
 function todayViewportX(){
-  const todayWeek=Math.max(0, Math.min(S.WEEKS-1, Math.floor((S.today-S.start)/(7*864e5))));
   let contentX;
   if(S.blocksMode){
-    contentX=weekBlockX(todayWeek, S.cw, S.thinFactor)+S.cw/2;
+    contentX = colCenterX(todayCol(), S.cw, S.thinFactor);
   } else {
-    contentX=todayWeek*(S.cw+GAP)+monthOfWeek(todayWeek)*S.monthShift+S.cw/2;
+    const w=weekOfDate(S.today), mi=S.monthIndex[S.today.getFullYear()+'-'+S.today.getMonth()]||0;
+    contentX = w*(S.cw+GAP) + mi*S.monthShift + S.cw/2;
   }
   return contentX - D.scroller.scrollLeft + S.padX;
 }
@@ -198,16 +198,21 @@ export function stepLevel(dir){
   animateZoom(levelTargetCw(ni,m), focalX);
 }
 
+// the timeline renders ghost cells through the end of the current month, so snapping/stepping
+// must stop at today's set, not the grid's last (future) column / month block.
+function todayCol(){ const k=S.cellTracks.indexOf(blockColFor(S.today)); return k<0 ? S.cellTracks.length-1 : k; }
+function todayMonthBlock(){ const i=S.monthIndex[S.today.getFullYear()+'-'+S.today.getMonth()]; return i==null ? S.months.length-1 : i; }
+
 // step one "set" left/right and snap it to centre (desktop arrows + phone discrete swipe)
 export function panBy(dir){
   if(S.monthlyView) return;
   const m=metrics(), n=stageNum(S.cw,m), half=D.scroller.clientWidth/2, centerX=D.scroller.scrollLeft+half-S.padX;
   let left;
   if(n===4){           // Detail: step one week-column
-    const k=Math.max(0, Math.min(S.cellTracks.length-1, nearestColToX(centerX, S.cw, S.thinFactor)+dir));
+    const k=Math.max(0, Math.min(todayCol(), nearestColToX(centerX, S.cw, S.thinFactor)+dir));
     left=colCenterX(k, S.cw, S.thinFactor)-half+S.padX;
   } else if(n===3){    // Compact: step one month block
-    const i=Math.max(0, Math.min(S.months.length-1, nearestMonthToX(centerX, S.cw, S.thinFactor)+dir));
+    const i=Math.max(0, Math.min(todayMonthBlock(), nearestMonthToX(centerX, S.cw, S.thinFactor)+dir));
     left=monthCenterX(i, S.cw, S.thinFactor)-half+S.padX;
   } else if(n===2){    // Covers: step one month (continuous stream)
     const i=Math.max(0, Math.min(S.monthEls.length-1, nearestMonthToXCont(centerX, S.cw, S.monthShift)+dir));
@@ -223,8 +228,8 @@ export function snapToNearestSet(){
   if(S.monthlyView) return;
   const m=metrics(), n=stageNum(S.cw,m), half=D.scroller.clientWidth/2, centerX=D.scroller.scrollLeft+half-S.padX;
   let left=null;
-  if(n===4){ const k=nearestColToX(centerX, S.cw, S.thinFactor); left=colCenterX(k, S.cw, S.thinFactor)-half+S.padX; }
-  else if(n===3){ const i=nearestMonthToX(centerX, S.cw, S.thinFactor); left=monthCenterX(i, S.cw, S.thinFactor)-half+S.padX; }
+  if(n===4){ const k=Math.min(todayCol(), nearestColToX(centerX, S.cw, S.thinFactor)); left=colCenterX(k, S.cw, S.thinFactor)-half+S.padX; }
+  else if(n===3){ const i=Math.min(todayMonthBlock(), nearestMonthToX(centerX, S.cw, S.thinFactor)); left=monthCenterX(i, S.cw, S.thinFactor)-half+S.padX; }
   else if(n===2){ const i=nearestMonthToXCont(centerX, S.cw, S.monthShift); left=monthCenterXCont(i, S.cw, S.monthShift)-half+S.padX; }
   if(left!=null) D.scroller.scrollTo({left, behavior:'smooth'});
 }
@@ -244,22 +249,21 @@ export function jumpToNow(){
   const wasBlocks=S.blocksMode;
   applyZoom();                                // sets thinFactor, padX, relayouts months (in old mode)
   if(!wasBlocks){ setMode(true); relayoutMonths(); }  // switch grid + reposition month labels
-  const todayWeek=Math.max(0, Math.min(S.WEEKS-1, Math.floor((S.today-S.start)/(7*864e5))));
-  const half=D.scroller.clientWidth/2;
-  D.scroller.scrollLeft=weekBlockX(todayWeek, S.cw, S.thinFactor)+S.cw/2-half+S.padX;
+  scrollTodayToCenter();
 }
 
-// Center today's week in the viewport at the current zoom level (called once on init).
-export function scrollTodayToCenter(){
-  const todayWeek=Math.max(0, Math.min(S.WEEKS-1, Math.floor((S.today-S.start)/(7*864e5))));
+// Centre today's week in the viewport. Accepts optional smooth flag (End key / Now button).
+export function scrollTodayToCenter(smooth){
+  if(S.monthlyView) return;
   const half=D.scroller.clientWidth/2;
-  let x;
+  let left;
   if(S.blocksMode){
-    x=weekBlockX(todayWeek, S.cw, S.thinFactor)+S.cw/2;
+    left = colCenterX(todayCol(), S.cw, S.thinFactor) - half + S.padX;
   } else {
-    x=todayWeek*(S.cw+GAP)+monthOfWeek(todayWeek)*S.monthShift+S.cw/2;
+    const w=weekOfDate(S.today), mi=S.monthIndex[S.today.getFullYear()+'-'+S.today.getMonth()]||0;
+    left = w*(S.cw+GAP) + mi*S.monthShift + S.cw/2 - half + S.padX;
   }
-  D.scroller.scrollLeft=x-half+S.padX;
+  D.scroller.scrollTo({left, behavior: smooth ? 'smooth' : 'auto'});
 }
 
 export { stageNum };

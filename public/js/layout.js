@@ -61,9 +61,16 @@ export function nearestMonthToX(x, cwv, thinv){ let best=0,bd=Infinity; for(let 
 // dataset.cont = the week column a month begins on (months share boundary weeks in the stream).
 export function monthContStart(i){ return +S.monthEls[i].dataset.cont; }
 export function monthOfWeek(w){ let mi=0; for(let i=0;i<S.monthEls.length;i++){ if(monthContStart(i)<=w) mi=i; else break; } return mi; }
+// week (continuous-stream column) containing date d; per-day rounding absorbs DST hour shifts
+export function weekOfDate(d){ return Math.floor(Math.round((d-S.start)/864e5)/7); }
 export function monthCenterXCont(i, cwv, shiftv){
-  const pitch=cwv+GAP, s=monthContStart(i), e=(i+1<S.monthEls.length)?monthContStart(i+1):S.WEEKS;
-  return ((s+e-1)/2)*pitch + cwv/2 + i*shiftv;
+  // centre of the month's VISUAL span — its first day's week through its last day's week — so
+  // months that start mid-week (whose first cells sit in the previous month's boundary column,
+  // pushed right by the fracture shift) come out centred rather than half a column off.
+  const [y,mo]=S.monthKeys[i].split('-').map(Number);
+  const wf=Math.max(0, weekOfDate(new Date(y,mo,1)));
+  const wl=Math.min(S.WEEKS-1, weekOfDate(new Date(y,mo+1,0)));
+  return ((wf+wl)/2)*(cwv+GAP) + cwv/2 + i*shiftv;
 }
 export function nearestMonthToXCont(x, cwv, shiftv){ let best=0,bd=Infinity; for(let i=0;i<S.monthEls.length;i++){ const d=Math.abs(monthCenterXCont(i,cwv,shiftv)-x); if(d<bd){bd=d;best=i;} } return best; }
 // fracture amount per month for the continuous stream: slight gap at the Finished level, opening

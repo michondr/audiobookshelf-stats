@@ -1,7 +1,7 @@
 // Input wiring. Desktop: wheel / ▲▼ zoom, ◄► pan, shift+wheel native pan. Phone: vertical swipe
 // zoom (up = in), horizontal drag = native scroll with settle-snap, tap a month to dive in.
 import { S, D, isPhone } from './state.js';
-import { applyZoom, setZoom, stepLevel, panBy, snapToNearestSet, enterMonthly, jumpToMonthCovers, setLevelActive, currentMonthIndex, setOnLevelChange, jumpToNow } from './zoom.js';
+import { applyZoom, setZoom, stepLevel, panBy, snapToNearestSet, enterMonthly, jumpToMonthCovers, setLevelActive, currentMonthIndex, setOnLevelChange, jumpToNow, scrollTodayToCenter } from './zoom.js';
 import { sizeMonthly } from './monthly.js';
 import { esc, MONTH } from './format.js';
 import { drawAndShare } from './share.js';
@@ -41,7 +41,8 @@ export function initControls(){
     else if(e.key==='Home'||e.key==='End'){            // jump to oldest / today
       if(S.monthlyView) return;
       e.preventDefault();
-      D.scroller.scrollTo({left: e.key==='Home'?0:D.scroller.scrollWidth, behavior:'smooth'});
+      if(e.key==='Home') D.scroller.scrollTo({left:0, behavior:'smooth'});
+      else scrollTodayToCenter(true);
     }
   });
 
